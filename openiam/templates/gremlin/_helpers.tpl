@@ -30,11 +30,12 @@ chartref prints a chart name and version.
 It does minimal escaping for use in Kubernetes labels.
 Example output:
   zookeeper-1.2.3
-  wordpress-3.2.1_20170219kub
+  wordpress-3.2.1_20170219
 */ -}}
 {{- define "chartref" -}}
   {{- replace "+" "_" .Chart.Version | printf "%s-%s" .Chart.Name -}}
 {{- end -}}
+
 
 {{- define "imagePullSecret" }}
 {{- printf "{\"auths\": {\"%s\": {\"auth\": \"%s\"}}}" .Values.openiam.image.credentials.registry (printf "%s:%s" .Values.openiam.image.credentials.username .Values.openiam.image.credentials.password | b64enc) | b64enc }}

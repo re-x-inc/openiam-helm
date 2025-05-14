@@ -1,0 +1,63 @@
+{{- if .Values.openiam_rabbitmq.rabbitmq.tls.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Values.openiam.appname }}-rabbitmq-jks-generator
+  labels:
+    openiam_collect_logs: 'true'
+spec:
+#  activeDeadlineSeconds: 100
+  backoffLimit: 100
+  template:
+    metadata:
+      labels:
+        openiam_collect_logs: 'true'
+    spec:
+      imagePullSecrets:
+      - name: myregistrykey
+      containers:
+      - name: rabbitmq-jks-init
+        image: "{{ .Values.openiam.image.registry }}{{ .Values.openiam.image.registryPrefixSeparator }}{{ .Values.openiam.image.prefix_infra }}/certificate-generator:{{ .Values.openiam.image.version }}-{{ .Values.openiam.image.environment }}"
+        imagePullPolicy: {{ .Values.openiam.image.pullPolicy }}
+        securityContext:
+          runAsUser: {{ .Values.global.volumePermissions.securityContext.runAsUser }}
+        env:
+        - name: APPLICATION_TYPE
+          value: "rabbitmq"
+        - name: OPENIAM_LOG_LEVEL
+          value: {{ .Values.openiam.bash.log.level }}
+        - name: LOGGING_LEVEL
+          value: {{ .Values.openiam.bash.log.level }}
+        - name: CERT_KEYPASS
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: rabbitmqJksKeyPassword
+        - name: CERT_COMMON_NAME
+          value: "N/A"
+        - name: CERT_COUNTRY
+          value: "N/A"
+        - name: CERT_STATE
+          value: "N/A"
+        - name: CERT_LOCALITY
+          value: "N/A"
+        - name: CERT_ORGANIZATION
+          value: "N/A"
+        - name: CERT_ORGANIZATION_UNIT
+          value: "N/A"
+        volumeMounts:
+        - mountPath: /data/openiam/conf/rabbitmq/client
+          name: rabbitmq-jks
+          readOnly: false
+        - mountPath: /data/openiam/conf/rabbitmq/server
+          name: rabbitmq-certificates
+          readOnly: false
+      restartPolicy: OnFailure
+      volumes:
+      - name: rabbitmq-jks
+        persistentVolumeClaim:
+          claimName: openiam-pvc-rabbitmq-jks
+      - name: rabbitmq-certificates
+        secret:
+          secretName: rabbitmq-certificates
+{{- end }}

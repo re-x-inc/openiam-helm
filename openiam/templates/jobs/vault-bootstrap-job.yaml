@@ -1,0 +1,182 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Values.openiam.appname }}-vault-bootstrap-job
+  labels:
+    openiam_collect_logs: 'true'
+spec:
+#  activeDeadlineSeconds: 100
+  backoffLimit: 100
+  template:
+    metadata:
+      labels:
+        openiam_collect_logs: 'true'
+    spec:
+      imagePullSecrets:
+      - name: myregistrykey
+{{- if eq "false" (.Values.openiam.vault.migrate | toString) }}
+      initContainers:
+      - name: vault-import
+        image: "{{ .Values.openiam.image.registry }}{{ .Values.openiam.image.registryPrefixSeparator }}{{ .Values.openiam.image.prefix_infra }}/medusa:{{ .Values.openiam.image.version }}-{{ .Values.openiam.image.environment }}"
+        imagePullPolicy: {{ .Values.openiam.image.pullPolicy }}
+        securityContext:
+          runAsUser: {{ .Values.global.volumePermissions.securityContext.runAsUser }}
+        env:
+        - name: OPENIAM_LOG_LEVEL
+          value: {{ .Values.openiam.bash.log.level }}
+        - name: LOGGING_LEVEL
+          value: {{ .Values.openiam.bash.log.level }}
+        - name: VAULT_ACTION
+          value: import
+        - name: VAULT_URL
+          value: {{ .Values.openiam.vault.url | quote }}
+        volumeMounts:
+        - mountPath: /data/openiam/conf/vault/storage
+          name: vault-storage
+        - mountPath: /data/openiam/conf/vault/server
+          name: vault-server-config
+          readOnly: true
+        - mountPath: /data/openiam/conf/vault/client
+          name: vault-client-config
+          readOnly: true
+{{- end }}
+      containers:
+      - name: vault-bootstrap
+        image: "{{ .Values.openiam.image.registry }}{{ .Values.openiam.image.registryPrefixSeparator }}{{ .Values.openiam.image.prefix_infra }}/vault-bootstrap:{{ .Values.openiam.image.version }}-{{ .Values.openiam.image.environment }}"
+        imagePullPolicy: {{ .Values.openiam.image.pullPolicy }}
+        env:
+        - name: OPENIAM_LOG_LEVEL
+          value: {{ .Values.openiam.bash.log.level }}
+        - name: SECRET_DB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: databaseRootPassword
+        - name: SECRET_RABBITMQ_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: rabbitmqUserName
+        - name: SECRET_SPRING_RABBITMQ_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: rabbitmqUserName
+        - name: SECRET_RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: rabbitmqPassword
+        - name: SECRET_SPRING_RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: rabbitmqPassword
+        - name: SECRET_REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: redisPassword
+        - name: SECRET_REDIS_SENTINEL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: redisSentinelPassword
+        - name: SECRET_SPRING_REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: redisPassword
+        - name: SECRET_JDBC_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: openiamDatabaseUserName
+        - name: SECRET_JDBC_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: openiamDatabasePassword
+        - name: SECRET_ACTIVITI_JDBC_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: activitiDatabaseUserName
+        - name: SECRET_ACTIVITI_JDBC_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: activitiDatabasePassword
+        - name: SECRET_GROOVY_JDBC_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: groovyDatabaseUserName
+        - name: SECRET_GROOVY_JDBC_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: groovyDatabasePassword
+        - name: SECRET_KEYSTORE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: javaKeystorePassword
+        - name: SECRET_IAM_JKS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: jksPassword
+        - name: SECRET_IAM_JKS_KEY_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: jksKeyPassword
+        - name: SECRET_IAM_JKS_COOKIE_KEY_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: jksCookieKeyPassword
+        - name: SECRET_IAM_JKS_COMMON_KEY_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: jksCommonKeyPassword
+        - name: SECRET_RABBITMQ_JKS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: rabbitmqJksKeyPassword
+        - name: SECRET_OPENSEARCH_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: opensearchUserName
+        - name: SECRET_OPENSEARCH_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: opensearchPassword
+#IAM-5487
+# {{- if or (eq .Values.openiam.cloud_provider "gke") (eq .Values.openiam.cloud_provider "helm") }}
+# {{- end }}
+        - name: VAULT_URL
+          value: {{ .Values.openiam.vault.url | quote }}
+        volumeMounts:
+        - mountPath: /data/openiam/conf/vault/server
+          name: vault-server-config
+          readOnly: true
+        - mountPath: /data/openiam/conf/vault/client
+          name: vault-client-config
+          readOnly: true
+      restartPolicy: OnFailure
+      volumes:
+      - name: vault-server-config
+        persistentVolumeClaim:
+          claimName: openiam-pvc-vault-server
+      - name: vault-client-config
+        persistentVolumeClaim:
+          claimName: openiam-pvc-vault-client
+      - name: vault-storage
+        persistentVolumeClaim:
+          claimName: openiam-pvc-vault-storage

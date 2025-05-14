@@ -1,0 +1,51 @@
+{{- if eq "true" (.Values.openiam_vault.vault.migrate | toString) }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Values.openiam.appname }}-vault-export-job
+  labels:
+    openiam_collect_logs: 'true'
+spec:
+#  activeDeadlineSeconds: 100
+  backoffLimit: 100
+  template:
+    metadata:
+      labels:
+        openiam_collect_logs: 'true'
+    spec:
+      imagePullSecrets:
+      - name: myregistrykey
+      containers:
+      - name: vault-export        
+        image: "{{ .Values.openiam.image.registry }}{{ .Values.openiam.image.registryPrefixSeparator }}openiam_infra/medusa:{{ .Chart.Version }}-{{ .Values.openiam.image.environment }}"
+        imagePullPolicy: {{ .Values.openiam.image.pullPolicy }}
+        securityContext:
+          runAsUser: {{ .Values.global.volumePermissions.securityContext.runAsUser }}
+        env:
+        - name: OPENIAM_LOG_LEVEL
+          value: {{ .Values.openiam.bash.log.level }}
+        - name: VAULT_URL
+          value: {{ .Values.openiam.appname }}-vault
+        - name: VAULT_ACTION
+          value: export
+        volumeMounts:
+        - mountPath: /data/openiam/conf/vault/storage
+          name: vault-storage
+        - mountPath: /data/openiam/conf/vault/server
+          name: vault-server-config
+          readOnly: true
+        - mountPath: /data/openiam/conf/vault/client
+          name: vault-client-config
+          readOnly: true
+      restartPolicy: OnFailure
+      volumes:
+      - name: vault-server-config
+        persistentVolumeClaim:
+          claimName: openiam-pvc-vault-server
+      - name: vault-client-config
+        persistentVolumeClaim:
+          claimName: openiam-pvc-vault-client
+      - name: vault-storage
+        persistentVolumeClaim:
+          claimName: openiam-pvc-vault-storage
+{{- end }}

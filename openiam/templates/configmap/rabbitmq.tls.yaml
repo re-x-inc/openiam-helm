@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rabbitmq-certificates
+type: Opaque
+stringData:
+  tls.crt: |-
+{{ .Files.Get ".rabbitmq/rabbitmq.crt" | indent 4}}
+  ca.crt: |-
+{{ .Files.Get ".rabbitmq/rabbitmq.ca.crt" | indent 4}}
+  tls.key: |-
+{{ .Files.Get ".rabbitmq/rabbitmq.key" | indent 4}}
+
+# copies the above, except with different name
+  rabbitmq.crt: |-
+{{ .Files.Get ".rabbitmq/rabbitmq.crt" | indent 4}}
+  rabbitmq.ca.crt: |-
+{{ .Files.Get ".rabbitmq/rabbitmq.ca.crt" | indent 4}}
+  rabbitmq.key: |-
+{{ .Files.Get ".rabbitmq/rabbitmq.key" | indent 4}}

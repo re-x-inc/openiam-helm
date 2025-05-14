@@ -1,0 +1,24 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+ name: {{ .Values.openiam.appname }}-cqlsh-job
+spec:
+  template:
+    metadata: 
+      name: {{ .Values.openiam.appname }}-cqlsh-job
+      annotations: 
+        "helm.sh/hooks": postn-install
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: cqlsh
+        image: "{{ .Values.openiam.image.registry }}{{ .Values.openiam.image.registryPrefixSeparator }}{{ .Values.openiam.image.prefix_infra }}/cassandra:{{ .Values.openiam.image.version }}-{{ .Values.openiam.image.environment }}"
+        command: ["/bin/sh", "-c", "cqlsh $CASSANDRA_HOST 9042 -u cassandra -p $CASSANDRA_PASSWORD -e 'alter table janusgraph.edgestore with GC_GRACE_SECONDS = 86400;'"]
+        env:
+        - name: CASSANDRA_HOST
+          value: {{ .Values.openiam.cassandra.host }}
+        - name: CASSANDRA_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: cassandraPassword
+              name: secrets

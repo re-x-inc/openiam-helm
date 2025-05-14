@@ -1,0 +1,22 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: openiam-pvc-storage-ui-custom-static
+  labels:
+    app: openiam-pvc-storage-ui-custom-static
+    openiam_collect_logs: 'true'
+spec:
+  accessModes:
+  {{- range .Values.volumes.ui.volume.accessModes }}
+    - {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.volumes.ui.volume.size | quote }}
+{{- if .Values.volumes.ui.volume.storageClass }}
+{{- if (eq "-" .Values.volumes.ui.volume.storageClass) }}
+  storageClassName: ""
+{{- else }}
+  storageClassName: "{{ .Values.volumes.ui.volume.storageClass }}"
+{{- end }}
+{{- end }}

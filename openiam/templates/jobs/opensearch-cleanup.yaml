@@ -1,0 +1,65 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Values.openiam.appname }}-opensearch-curator
+  labels:
+    openiam_collect_logs: 'true'
+spec:
+  backoffLimit: 100
+  template:
+    metadata:
+      labels:
+        openiam_collect_logs: 'true'
+    spec:
+      imagePullSecrets:
+      - name: myregistrykey
+      containers:
+      - name: opensearch-curator
+        image: "{{ .Values.openiam.image.registry }}{{ .Values.openiam.image.registryPrefixSeparator }}{{ .Values.openiam.image.prefix_infra }}/curator:{{ .Values.openiam.image.version }}-{{ .Values.openiam.image.environment }}"
+        imagePullPolicy: {{ .Values.openiam.image.pullPolicy }}
+        env:
+        - name: OPENIAM_LOG_LEVEL
+          value: {{ .Values.openiam.bash.log.level }}
+        - name: LOGGING_LEVEL
+          value: {{ .Values.openiam.bash.log.level }}
+        - name: OPENSEARCH_PROTOCOL
+          value: {{ .Values.openiam_opensearch.opensearch.protocol | quote }}
+        - name: OPENSEARCH_HOST
+          value: {{ .Values.openiam_opensearch.opensearch.host | quote }}
+        - name: OPENSEARCH_PORT
+          value: {{ .Values.openiam_opensearch.opensearch.port | quote }}
+        - name: DAYS_TO_CURATE_DATA
+          value: {{ .Values.openiam_opensearch.opensearch.helm.curate.days | quote }}
+        - name: MAX_INDEX_SIZE_DAYS
+          value: {{ .Values.openiam_opensearch.opensearch.helm.curate.maxIndexDays | quote }}
+        - name: MAX_INDEX_SIZE_GB
+          value: {{ .Values.openiam_opensearch.opensearch.helm.curate.sizeGB | quote }}
+
+
+        - name: ES_DOC_DAYS_TO_CURATE_DATA
+          value: {{ .Values.openiam_opensearch.opensearch.helm.index.days | quote }}
+        - name: ES_DOC_MAX_INDEX_SIZE_DAYS
+          value: {{ .Values.openiam_opensearch.opensearch.helm.index.maxIndexDays | quote }}
+        - name: ES_DOC_MAX_INDEX_SIZE_GB
+          value: {{ .Values.openiam_opensearch.opensearch.helm.index.sizeGB | quote }}
+        - name: ES_DOC_WARN_PHASE_DAYS
+          value: {{ .Values.openiam_opensearch.opensearch.helm.index.warnPhaseDays | quote }}
+        - name: ES_DOC_COLD_PHASE_DAYS
+          value: {{ .Values.openiam_opensearch.opensearch.helm.index.coldPhaseDays | quote }}
+        - name: VAULT_URL
+          value: {{ .Values.openiam.vault.url | quote }}
+        volumeMounts:
+        - mountPath: /data/openiam/conf/vault/server
+          name: vault-server-config
+          readOnly: true
+        - mountPath: /data/openiam/conf/vault/client
+          name: vault-client-config
+          readOnly: true
+      restartPolicy: OnFailure
+      volumes:
+      - name: vault-server-config
+        persistentVolumeClaim:
+          claimName: openiam-pvc-vault-server
+      - name: vault-client-config
+        persistentVolumeClaim:
+          claimName: openiam-pvc-vault-client

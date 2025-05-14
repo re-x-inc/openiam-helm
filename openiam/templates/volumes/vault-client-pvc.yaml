@@ -1,0 +1,22 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: openiam-pvc-vault-client
+  labels:
+    app: openiam-pvc-vault-client
+    openiam_collect_logs: 'true'
+spec:
+  accessModes:
+  {{- range .Values.volumes.vault.volume.client.accessModes }}
+    - {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.volumes.vault.volume.client.size | quote }}
+{{- if .Values.volumes.vault.volume.client.storageClass }}
+{{- if (eq "-" .Values.volumes.vault.volume.client.storageClass) }}
+  storageClassName: ""
+{{- else }}
+  storageClassName: "{{ .Values.volumes.vault.volume.client.storageClass }}"
+{{- end }}
+{{- end }}

@@ -1,0 +1,22 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: openiam-pvc-storage-machine-learning
+  labels:
+    app: openiam-pvc-storage-machine-learning
+    openiam_collect_logs: 'true'
+spec:
+  accessModes:
+  {{- range .Values.volumes.machine_learning.volume.accessModes }}
+    - {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.volumes.machine_learning.volume.size | quote }}
+{{- if .Values.volumes.machine_learning.volume.storageClass }}
+{{- if (eq "-" .Values.volumes.machine_learning.volume.storageClass) }}
+  storageClassName: ""
+{{- else }}
+  storageClassName: "{{ .Values.volumes.machine_learning.volume.storageClass }}"
+{{- end }}
+{{- end }}

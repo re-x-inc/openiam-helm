@@ -1,0 +1,173 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.openiam.appname }}-vault
+  labels:
+    openiam_collect_logs: 'true'
+{{ include "labels.standard" . | indent 4 }}
+spec:
+  selector:
+    matchLabels:
+      release: {{ .Release.Name }}
+      app: {{ .Values.openiam.appname }}-vault
+  serviceName: {{ .Values.openiam.appname }}-vault
+  replicas: {{ .Values.openiam_vault.vault.replicas }}
+  podManagementPolicy: OrderedReady
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      {{- if .Values.openiam_vault.vault.podAnnotations }}
+{{ toYaml .Values.openiam_vault.vault.podAnnotations | indent 8 }}
+      {{- end }}
+      labels:
+        release: {{ .Release.Name }}
+        app: {{ .Values.openiam.appname }}-vault
+        openiam_collect_logs: 'true'
+        {{- range $key, $value := .Values.openiam_vault.vault.labels }}
+        {{ $key }}: {{ $value }}
+        {{- end }}
+    spec:
+      {{- if .Values.openiam_vault.vault.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.openiam_vault.vault.nodeSelector | indent 8 }}
+      {{- end }}
+      {{- if .Values.openiam_vault.vault.hostAliases }}
+      hostAliases:
+{{ toYaml .Values.openiam_vault.vault.hostAliases | indent 8 }}
+      {{- end }}
+      {{- if .Values.openiam_vault.vault.tolerations }}
+      tolerations:
+{{ toYaml .Values.openiam_vault.vault.tolerations | indent 8 }}
+      {{- end }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - {{ .Values.openiam.appname }}-vault
+            topologyKey: "kubernetes.io/hostname"
+      {{- if not .Values.global.openshift }}
+      securityContext:
+{{ toYaml .Values.openiam_vault.vault.securityContext | indent 8 }}
+      {{- end }}
+      imagePullSecrets:
+      - name: vaultregistrykey
+      containers:
+      - name: vault
+        image: "{{ .Values.openiam.image.registry }}{{ .Values.openiam.image.registryPrefixSeparator }}{{ .Values.openiam.image.prefix }}/vault:{{ .Values.openiam.image.version }}-{{ .Values.openiam.image.environment }}"
+        imagePullPolicy: {{ .Values.openiam.image.pullPolicy }}
+        env:
+        - name: TZ
+          value: {{ .Values.global.timezone | quote }}
+        - name: STORAGE_TYPE
+        {{- if eq "true" (.Values.openiam_vault.vault.migrate | toString) }}
+          value: 'file'
+        {{- else }}
+          value: 'consul'
+        {{- end }}
+        - name: OPENIAM_LOG_LEVEL
+          value: {{ .Values.openiam.bash.log.level }}
+        - name: CONSUL_URL
+          value: {{ .Values.consul.url }}
+        - name: CONSUL_PORT
+          value: {{ .Values.consul.port | quote }}
+        - name: VAULT_BASE_URL
+          value: {{ .Values.openiam_vault.vault.url | quote }}
+#        - name: OPENIAM_DEBUG_SLEEP
+#          value: "100500d"
+        readinessProbe:
+          exec:
+            command: ['/bin/sh', '-c', '(healthcheck.sh 60 && exit 0) || exit 1']
+          initialDelaySeconds: 60
+          timeoutSeconds: 60
+          periodSeconds: 30
+          failureThreshold: 12
+        livenessProbe:
+          exec:
+            command: ['/bin/sh', '-c', '(healthcheck.sh 60 && exit 0) || exit 1']
+          initialDelaySeconds: 60
+          timeoutSeconds: 60
+          periodSeconds: 30
+          failureThreshold: 12
+        resources:
+{{ toYaml .Values.openiam_vault.vault.resources | indent 10 }}
+        volumeMounts:
+        - mountPath: /data/openiam/conf/vault/seal
+          name: vault-seal
+        - mountPath: /data/openiam/conf/vault/storage
+          name: vault-storage
+        - mountPath: /data/openiam/conf/vault/server
+          name: vault-server
+          readOnly: true
+        - mountPath: /data/openiam/conf/vault/client
+          name: vault-client
+          readOnly: true
+      initContainers:
+      - name: volumeinit
+        image: "{{ .Values.openiam.image.registry }}{{ .Values.openiam.image.registryPrefixSeparator }}{{ .Values.openiam.image.prefix }}/certificate-generator:{{ .Values.openiam.image.version}}-{{ .Values.openiam.image.environment }}"
+        imagePullPolicy: {{ .Values.openiam.image.pullPolicy }}
+        {{- if not .Values.global.openshift }}
+        securityContext:
+          runAsUser: 0
+        {{- end }}
+        env:
+        - name: APPLICATION_TYPE
+          value: "vault"
+        - name: OPENIAM_LOG_LEVEL
+          value: {{ .Values.openiam.bash.log.level }}
+        - name: CERT_KEYPASS
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: vaultKeyPassword
+        - name: CERT_COMMON_NAME
+          value: {{ .Values.openiam_vault.vault.url | quote }}
+        - name: CERT_COUNTRY
+          value: {{ .Values.openiam_vault.vault.cert.country | quote }}
+        - name: CERT_STATE
+          value: {{ .Values.openiam_vault.vault.cert.state | quote }}
+        - name: CERT_LOCALITY
+          value: {{ .Values.openiam_vault.vault.cert.locality | quote }}
+        - name: CERT_ORGANIZATION
+          value: {{ .Values.openiam_vault.vault.cert.organization | quote }}
+        - name: CERT_ORGANIZATION_UNIT
+          value: {{ .Values.openiam_vault.vault.cert.organizationunit | quote }}
+#        - name: OPENIAM_DEBUG_SLEEP
+#          value: "100500d"
+        volumeMounts:
+        - mountPath: /data/openiam/conf/vault/server
+          name: vault-server
+          readOnly: false
+        - mountPath: /data/openiam/conf/vault/client
+          name: vault-client
+          readOnly: false
+        - mountPath: /data/openiam/conf/vault/customcerts/server
+          name: vault-server-config
+          readOnly: true
+        - mountPath: /data/openiam/conf/vault/customcerts/client
+          name: vault-client-config
+          readOnly: true
+      volumes:
+      - name: vault-seal
+        persistentVolumeClaim:
+          claimName: openiam-pvc-vault-seal
+      - name: vault-server
+        persistentVolumeClaim:
+          claimName: openiam-pvc-vault-server
+      - name: vault-client
+        persistentVolumeClaim:
+          claimName: openiam-pvc-vault-client
+      - name: vault-server-config
+        configMap:
+          name: vault-server-config
+      - name: vault-client-config
+        configMap:
+          name: vault-client-config
+      - name: vault-storage
+        persistentVolumeClaim:
+          claimName: openiam-pvc-vault-storage

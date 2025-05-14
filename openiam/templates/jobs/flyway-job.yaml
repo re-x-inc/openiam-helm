@@ -1,0 +1,130 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Values.openiam.appname }}-flyway-job
+  labels:
+    openiam_collect_logs: 'true'
+spec:
+#  activeDeadlineSeconds: 100
+  backoffLimit: 100
+  template:
+    metadata:
+      labels:
+        openiam_collect_logs: 'true'
+    spec:
+      imagePullSecrets:
+      - name: myregistrykey
+      containers:
+      - name: flyway        
+        image: "{{ .Values.openiam.image.registry }}{{ .Values.openiam.image.registryPrefixSeparator }}{{ .Values.openiam.image.prefix_infra }}/flyway:{{ .Values.openiam.image.version }}-{{ .Values.openiam.image.environment }}"
+        imagePullPolicy: {{ .Values.openiam.image.pullPolicy }}
+        env:
+#        - name: OPENIAM_DEBUG_SLEEP
+#          value: "100500d"
+        - name: OPENIAM_LOG_LEVEL
+          value: {{ .Values.openiam.bash.log.level }}
+        - name: LOGGING_LEVEL
+          value: {{ .Values.openiam.bash.log.level }}
+        - name: FLYWAY_BASELINE_VERSION
+          value: {{ required "openiam.flyway.baselineVersion is required" .Values.openiam.flyway.baselineVersion }}
+        - name: FLYWAY_OPENIAM_HOST
+          value: {{ required "openiam.database.jdbc.openiam.host is required" .Values.openiam.database.jdbc.openiam.host }}
+        - name: FLYWAY_ACTIVITI_HOST
+          value: {{ required "openiam.database.jdbc.activiti.host is required" .Values.openiam.database.jdbc.activiti.host }}
+        - name: FLYWAY_GROOVY_HOST
+          value: {{ required "openiam.database.jdbc.groovy.host is required" .Values.openiam.database.jdbc.groovy.host }}
+        - name: FLYWAY_OPENIAM_PORT
+          value: {{ required "openiam.database.jdbc.openiam.port is required" .Values.openiam.database.jdbc.openiam.port | quote }}
+        - name: FLYWAY_DATABASE_TYPE
+          value: {{ required "openiam.database.type is required" .Values.openiam.database.type }}
+        - name: FLYWAY_ACTIVITI_PORT
+          value: {{ required "openiam.database.jdbc.activiti.port is required" .Values.openiam.database.jdbc.activiti.port | quote }}
+        - name: FLYWAY_GROOVY_PORT
+          value: {{ required "openiam.database.jdbc.groovy.port is required" .Values.openiam.database.jdbc.groovy.port | quote }}
+        - name: FLYWAY_OPENIAM_DATABASE_NAME
+          value: {{ required "openiam.database.jdbc.openiam.databaseName is required" .Values.openiam.database.jdbc.openiam.databaseName }}
+        - name: FLYWAY_COMMAND
+          value: {{ required "openiam.flyway.command is required" .Values.openiam.flyway.command }}
+        - name: FLYWAY_OPENIAM_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: flywayOpeniamUserName
+        - name: FLYWAY_OPENIAM_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: flywayOpeniamPassword
+        - name: FLYWAY_ACTIVITI_DATABASE_NAME
+          value: {{ required "openiam.database.jdbc.activiti.databaseName is required" .Values.openiam.database.jdbc.activiti.databaseName }}
+        - name: FLYWAY_ACTIVITI_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: flywayActivitiUserName
+        - name: FLYWAY_ACTIVITI_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: flywayActivitiPassword
+        - name: FLYWAY_GROOVY_DATABASE_NAME
+          value: {{ required "openiam.database.jdbc.groovy.databaseName is required" .Values.openiam.database.jdbc.groovy.databaseName }}
+        - name: FLYWAY_GROOVY_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: flywayGroovyUserName
+        - name: FLYWAY_GROOVY_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: flywayGroovyPassword
+        - name: CREATE_FLYWAY_OPENIAM_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: openiamDatabaseUserName
+        - name: CREATE_FLYWAY_OPENIAM_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: openiamDatabasePassword
+        - name: CREATE_FLYWAY_ACTIVITI_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: activitiDatabaseUserName
+        - name: CREATE_FLYWAY_ACTIVITI_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: activitiDatabasePassword
+        - name: CREATE_FLYWAY_GROOVY_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: groovyDatabaseUserName
+        - name: CREATE_FLYWAY_GROOVY_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: groovyDatabasePassword
+        - name: FLYWAY_ORACLE_SID
+          value: {{ .Values.openiam.database.jdbc.sid }}
+{{ if .Values.openiam.flyway.rds }}
+        - name: IS_AWS_RDS
+          value: {{ required "openiam.flyway.rds is required" .Values.openiam.flyway.rds | quote }}
+        - name: RDS_MASTER_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: databaseRootUserName
+        - name: RDS_MASTER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: databaseRootPassword
+        - name: RDS_DATABASE_NAME
+          value: {{ .Values.openiam.flyway.root.database }}
+{{ end }}
+      restartPolicy: OnFailure

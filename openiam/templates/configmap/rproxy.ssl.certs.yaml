@@ -1,0 +1,27 @@
+{{- if eq (int .Values.openiam.rproxy.http) 0 }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rproxy-ssl-certs
+  labels:
+    openiam_collect_logs: 'true'
+data:
+  openiam.crt: |-
+{{ if .Values.openiam.rproxy.openiamcrt }}
+{{ .Values.openiam.rproxy.openiamcrt | indent 4}}
+{{ else }}
+{{ .Files.Get ".ssl/openiam.crt" | indent 4}}
+{{ end }}
+  openiam.ssl.ca.crt: |-
+{{ if .Values.openiam.rproxy.openiamcacrt }}
+{{ .Values.openiam.rproxy.openiamcacrt | indent 4}}
+{{ else }}
+{{ .Files.Get ".ssl/openiam.ssl.ca.crt" | indent 4}}
+{{ end }}
+  openiam.sslchain.crt: |-
+{{ if .Values.openiam.rproxy.chaincrt }}
+{{ .Values.openiam.rproxy.chaincrt | indent 4}}
+{{ else }}
+{{ .Files.Get ".ssl/openiam.sslchain.crt" | indent 4}}
+{{ end }}
+{{- end }}

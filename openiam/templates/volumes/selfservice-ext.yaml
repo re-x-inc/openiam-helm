@@ -1,0 +1,22 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: openiam-pvc-storage-selfservice-ext
+  labels:
+    app: openiam-pvc-storage-iamscripts
+    openiam_collect_logs: 'true'
+spec:
+  accessModes:
+  {{- range .Values.volumes.selfservice.ext.accessModes }}
+    - {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.volumes.selfservice.ext.size | quote }}
+{{- if .Values.volumes.selfservice.ext.storageClass }}
+{{- if (eq "-" .Values.volumes.selfservice.ext.storageClass) }}
+  storageClassName: ""
+{{- else }}
+  storageClassName: "{{ .Values.volumes.selfservice.ext.storageClass }}"
+{{- end }}
+{{- end }}

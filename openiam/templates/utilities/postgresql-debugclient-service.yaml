@@ -1,0 +1,18 @@
+{{- if eq (int .Values.openiam_postgresql.postgresql.debugclient.enabled) 1 }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.openiam.appname }}-postgresql-debugclient
+  labels:
+{{ include "labels.standard" . | indent 4 }}
+  annotations:
+  {{- if .Values.serviceAnnotations }}
+{{ toYaml .Values.serviceAnnotations | indent 4 }}
+  {{- end }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    release: {{ .Release.Name }}
+    app: {{ .Values.openiam.appname }}-postgresql-debugclient
+{{- end }}

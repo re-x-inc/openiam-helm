@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: reportviewer
+  labels:
+{{ include "labels.standard" . | indent 4 }}
+  annotations:
+  {{- if .Values.serviceAnnotations }}
+{{ toYaml .Values.serviceAnnotations | indent 4 }}
+  {{- end }}
+spec:
+  type: ClusterIP
+  ports:
+  - name: reportviewer
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    release: {{ .Release.Name }}
+    app: {{ .Values.openiam.appname }}-reportviewer

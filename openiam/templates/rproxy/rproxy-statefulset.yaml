@@ -1,0 +1,160 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.openiam.appname }}-rproxy
+  labels:
+    openiam_collect_logs: 'true'
+{{ include "labels.standard" . | indent 4 }}
+spec:
+  selector:
+    matchLabels:
+      release: {{ .Release.Name }}
+      app: {{ .Values.openiam.appname }}-rproxy
+  serviceName: {{ .Values.openiam.appname }}-rproxy
+  replicas: {{ required "openiam_rproxy.replicas is required" .Values.openiam_rproxy.replicas }}
+  podManagementPolicy: OrderedReady
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      {{- if .Values.openiam_rproxy.podAnnotations }}
+{{ toYaml .Values.openiam_rproxy.podAnnotations | indent 8 }}
+      {{- end }}
+      labels:
+        release: {{ .Release.Name }}
+        app: {{ .Values.openiam.appname }}-rproxy
+        openiam_collect_logs: 'true'
+        {{- range $key, $value := .Values.labels }}
+        {{ $key }}: {{ $value }}
+        {{- end }}
+    spec:
+      {{- if .Values.openiam_rproxy.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.openiam_rproxy.nodeSelector | indent 8 }}
+      {{- end }}
+      {{- if .Values.openiam_rproxy.hostAliases }}
+      hostAliases:
+{{ toYaml .Values.openiam_rproxy.hostAliases | indent 8 }}
+      {{- end }}
+      {{- if .Values.openiam_rproxy.tolerations }}
+      tolerations:
+{{ toYaml .Values.openiam_rproxy.tolerations | indent 8 }}
+      {{- end }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - {{ .Values.openiam.appname }}-rproxy
+            topologyKey: "kubernetes.io/hostname"
+      securityContext:
+{{ toYaml .Values.openiam_rproxy.securityContext | indent 8 }}
+      imagePullSecrets:
+      - name: rproxyregistrykey
+      containers:
+      - name: rproxy
+        image: "{{ .Values.openiam.image.registry }}{{ .Values.openiam.image.registryPrefixSeparator }}{{ .Values.openiam.image.prefix }}/rproxy:{{ .Values.openiam.image.version }}-{{ .Values.openiam.image.environment }}"
+        imagePullPolicy: {{ .Values.openiam.image.pullPolicy }}
+        env:
+        - name: TZ
+          value: {{ .Values.openiam.timezone | quote }}
+        - name: OPENIAM_RPROXY_UI
+          value: "http://{{ .Values.openiam.ui.service.host }}:{{ .Values.openiam.ui.service.port }}"
+        - name: OPENIAM_RPROXY_ESB
+          value: "http://{{ .Values.openiam.esb.service.host }}:{{ .Values.openiam.esb.service.port }}"
+        - name: OPENIAM_LOG_LEVEL
+          value: {{ .Values.openiam.bash.log.level | quote }}
+        - name: OPENIAM_SSL_CERT
+          value: {{ .Values.openiam_rproxy.ssl.cert | quote }}
+        - name: OPENIAM_SSL_CERT_KEY
+          value: {{ .Values.openiam_rproxy.ssl.certKey | quote }}
+        - name: OPENIAM_SSL_CHAIN
+          value: {{ .Values.openiam_rproxy.ssl.chain | quote }}
+        - name: OPENIAM_SSL_CA
+          value: {{ .Values.openiam_rproxy.ssl.ca | quote }}
+        - name: OPENIAM_SSL_PROTOCOL
+          value: {{ .Values.openiam_rproxy.ssl.protocol | quote }}
+        - name: OPENIAM_SSL_CIPHER_SUITE
+          value: {{ .Values.openiam_rproxy.ssl.cipherSuite | quote }}
+        - name: OPENIAM_RPROXY_VERBOSE
+          value: {{ .Values.openiam_rproxy.verbose | quote }}
+        - name: OPENIAM_RPROXY_DEBUG
+          value: {{ .Values.openiam_rproxy.debug.base | quote }}
+        - name: OPENIAM_RPROXY_DEBUG_ESB
+          value: {{ .Values.openiam_rproxy.debug.esb | quote }}
+        - name: OPENIAM_RPROXY_DEBUG_AUTH
+          value: {{ .Values.openiam_rproxy.debug.auth | quote }}
+        - name: OPENIAM_RPROXY_HTTP
+{{- if and (.Values.openiam_rproxy.aws) (.Values.openiam_rproxy.aws.certificateManagerARN) }}
+          value: "1"
+{{- else }}
+          value: {{ .Values.openiam_rproxy.http | quote }}
+{{- end }}
+        - name: OPENIAM_RPROXY_PASS_REVERSE
+          value: {{ .Values.openiam_rproxy.proxyPassReverse | quote }}
+        - name: OPENIAM_DEFAULT_URI
+          value: {{ .Values.openiam_rproxy.defaultUri | quote }}
+        - name: OPENIAM_HTTPS_HOST
+          value: {{ .Values.openiam_rproxy.https.host | quote }}
+        - name: OPENIAM_DISABLE_CONFIGURE
+          value: {{ .Values.openiam_rproxy.disableConfigure | quote }}
+        - name: OPENIAM_RPROXY_ERROR_LOG
+          value: {{ .Values.openiam_rproxy.log.error | quote }}
+        - name: OPENIAM_RPROXY_ACCESS_LOG
+          value: {{ .Values.openiam_rproxy.log.access | quote }}
+        - name: OPENIAM_RPROXY_DEFLATE
+          value: {{ .Values.openiam_rproxy.deflate | quote }}
+        - name: OPENIAM_RPROXY_CSP
+          value: {{ .Values.openiam_rproxy.csp | quote }}
+        - name: OPENIAM_RPROXY_CORS
+          value: {{ .Values.openiam_rproxy.cors | quote }}
+        - name: OPENIAM_APACHE_EXTRA_CONF
+          value: {{ .Values.openiam_rproxy.apache.extra | quote }}
+        - name: OPENIAM_VHOST_EXTRA_CONF
+          value: {{ .Values.openiam_rproxy.vhost.extra | quote }}
+        readinessProbe:
+          exec:
+            command: ['/bin/sh', '-c', '(healthcheck.sh && exit 0) || exit 1']
+          timeoutSeconds: 120
+          periodSeconds: 60
+          failureThreshold: 6
+        livenessProbe:
+          exec:
+            command: ['/bin/sh', '-c', '(healthcheck.sh && exit 0) || exit 1']
+          timeoutSeconds: 120
+          periodSeconds: 60
+          failureThreshold: 6
+        resources:
+{{ toYaml .Values.openiam_rproxy.resources | indent 10 }}
+        ports:
+        - name: rproxy-http
+          containerPort: 80
+{{- if not (eq (int .Values.openiam_rproxy.http) 1 ) }}
+        - name: rproxy-https
+          containerPort: 443
+{{- end }}
+        volumeMounts:
+        - mountPath: /usr/local/apache2/conf/add
+          name: apache-extra-config
+{{- if not (eq (int .Values.openiam_rproxy.http) 1 ) }}
+        - mountPath: /opt/openiam/httpd/ssl-certs
+          name: rproxy-ssl-certs
+        - mountPath: /opt/openiam/httpd/ssl-keys
+          name: rproxy-ssl-keys
+{{- end }}
+      volumes:
+      - name: apache-extra-config
+        configMap:
+          name: apache-extra-config
+{{- if not (eq (int .Values.openiam_rproxy.http) 1 ) }}
+      - name: rproxy-ssl-certs
+        configMap:
+          name: rproxy-ssl-certs
+      - name: rproxy-ssl-keys
+        configMap:
+          name: rproxy-ssl-keys
+{{- end }}

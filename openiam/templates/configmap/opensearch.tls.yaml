@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: opensearch-certificates
+type: Opaque
+stringData:
+  opensearch.key.pem: |-
+{{ .Files.Get ".opensearch/opensearch.key.pem" | indent 4}}
+  opensearch.pem: |-
+{{ .Files.Get ".opensearch/opensearch.pem" | indent 4}}
+  opensearch.ca.pem: |-
+{{ .Files.Get ".opensearch/opensearch.ca.pem" | indent 4}}
+  opensearch.crt: |-
+{{ .Files.Get ".opensearch/opensearch.crt" | indent 4}}

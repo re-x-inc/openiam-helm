@@ -1,0 +1,223 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.openiam.appname }}-groovy-manager
+  labels:
+    openiam_collect_logs: 'true'
+{{ include "labels.standard" . | indent 4 }}
+spec:
+  selector:
+    matchLabels:
+      release: {{ .Release.Name }}
+      app: {{ .Values.openiam.appname }}-groovy-manager
+  serviceName: {{ .Values.openiam.appname }}-groovy-manager
+  replicas: {{ required "openiam.groovy_manager.replicas is required" .Values.openiam.groovy_manager.replicas }}
+  podManagementPolicy: OrderedReady
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      {{- if .Values.openiam.groovy_manager.podAnnotations }}
+{{ toYaml .Values.openiam.groovy_manager.podAnnotations | indent 8 }}
+      {{- end }}
+      labels:
+        release: {{ .Release.Name }}
+        app: {{ .Values.openiam.appname }}-groovy-manager
+        openiam_collect_logs: 'true'
+        {{- range $key, $value := .Values.openiam.groovy_manager.labels }}
+        {{ $key }}: {{ $value }}
+        {{- end }}
+    spec:
+      {{- if .Values.openiam.groovy_manager.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.openiam.groovy_manager.nodeSelector | indent 8 }}
+      {{- end }}
+      {{- if .Values.openiam.groovy_manager.hostAliases }}
+      hostAliases:
+{{ toYaml .Values.openiam.groovy_manager.hostAliases | indent 8 }}
+      {{- end }}
+      {{- if .Values.openiam.groovy_manager.tolerations }}
+      tolerations:
+{{ toYaml .Values.openiam.groovy_manager.tolerations | indent 8 }}
+      {{- end }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - {{ .Values.openiam.appname }}-groovy-manager
+            topologyKey: "kubernetes.io/hostname"
+      securityContext:
+{{ toYaml .Values.openiam.groovy_manager.securityContext | indent 8 }}
+      imagePullSecrets:
+      - name: myregistrykey
+      containers:
+      - name: groovy-manager
+        image: "{{ .Values.openiam.image.registry }}{{ .Values.openiam.image.registryPrefixSeparator }}{{ .Values.openiam.image.prefix }}/groovy-manager:{{ .Values.openiam.image.version }}-{{ .Values.openiam.image.environment }}"
+        imagePullPolicy: {{ .Values.openiam.image.pullPolicy }}
+        env:
+        - name: TZ
+          value: {{ .Values.global.timezone | quote }}
+        - name: REDIS_HOST
+          value: {{ .Values.openiam.redis.host | quote }}
+        - name: REDIS_PORT
+          value: {{ .Values.openiam.redis.port | quote }}
+        - name: REDIS_MODE
+          value: {{ .Values.openiam.redis.mode | quote }}
+        - name: REDISSON_TIMEOUT
+          value: {{ .Values.openiam.redis.redisson.timeout | quote }}
+        - name: OPENIAM_LOG_LEVEL
+          value: {{ .Values.openiam.bash.log.level }}
+        - name: LOGGING_LEVEL
+          value: {{ .Values.openiam.bash.log.level }}
+        - name: OPENIAM_JAVA_OPT_ARGS
+          value: "{{ .Values.openiam.java.additional.args.global }} {{ .Values.openiam.groovy_manager.javaOpts }}"
+        - name: DB_TYPE
+          value: {{ required "openiam.database.type is required" .Values.openiam.database.type }}
+        - name: JDBC_HIBERNATE_DIALECT
+          value: {{.Values.openiam.database.jdbc.hibernate.dialect}}
+    {{- if .Values.openiam.database.jdbc.sid }}
+        - name: JDBC_SID
+          value: {{ .Values.openiam.database.jdbc.sid }}
+    {{- end }}
+    {{- if .Values.openiam.database.jdbc.timezone }}
+        - name: OPENIAM_PROP_user_timezone
+          value: {{ .Values.openiam.database.jdbc.timezone }}
+    {{- end }}
+    {{- if .Values.openiam.database.jdbc.serviceName }}
+        - name: JDBC_SERVICE_NAME
+          value: {{ .Values.openiam.database.jdbc.serviceName }}
+    {{- end }}
+    {{- if .Values.openiam.database.jdbc.hibernate.dialect }}
+        - name: OPENIAM_HIBERNATE_DIALECT
+          value: {{ .Values.openiam.database.jdbc.hibernate.dialect }}
+    {{- end }}
+        - name: JDBC_INCLUDE_SCHEMA_IN_QUERIES
+          value: {{ .Values.openiam.database.jdbcIncludeSchemaInQueries | quote }}
+        - name: HIBERNATE_INCLUDE_SCHEMA_IN_QUERIES
+          value: {{ .Values.openiam.database.hibernateIncludeSchemaInQueries | quote }}
+        - name: JDBC_HOST
+          value: {{ .Values.openiam.database.jdbc.openiam.host }}
+        - name: JDBC_PORT
+          value: {{ .Values.openiam.database.jdbc.openiam.port | quote }}
+        - name: JDBC_DATABASE_NAME
+          value: {{ .Values.openiam.database.jdbc.openiam.databaseName }}
+        - name: JDBC_SCHEMA_NAME
+          value: {{ .Values.openiam.database.jdbc.openiam.schemaName }}
+        - name: JDBC_ACTIVITI_DATABASE_NAME
+          value: {{ .Values.openiam.database.jdbc.activiti.databaseName }}
+        - name: JDBC_ACTIVITI_SCHEMA_NAME
+          value: {{ .Values.openiam.database.jdbc.activiti.schemaName }}
+        - name: JDBC_GROOVY_DATABASE_NAME
+          value: {{ .Values.openiam.database.jdbc.groovy.databaseName }}
+        - name: JDBC_GROOVY_SCHEMA_NAME
+          value: {{ .Values.openiam.database.jdbc.groovy.schemaName }}
+        - name: OPENSEARCH_PROTOCOL
+          value: {{ .Values.openiam_opensearch.opensearch.protocol | quote }}
+        - name: OPENSEARCH_HOST
+          value: {{ .Values.openiam_opensearch.opensearch.host | quote }}
+        - name: OPENSEARCH_PORT
+          value: {{ .Values.openiam_opensearch.opensearch.port | quote }}
+        - name: RABBITMQ_HOST
+          value: {{ .Values.openiam_rabbitmq.rabbitmq.host | quote }}
+        - name: RABBITMQ_PORT
+          value: {{ .Values.openiam_rabbitmq.rabbitmq.port | quote }}
+        - name: VAULT_HOST
+          value: {{ .Values.openiam.vault.url | quote }}
+        - name: VAULT_KEYPASS
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: vaultKeyPassword
+        readinessProbe:
+          exec:
+            command: ['/bin/sh', '-c', '(healthcheck.sh 120 && exit 0) || exit 1']
+          initialDelaySeconds: 120
+          timeoutSeconds: 120
+          periodSeconds: 60
+          failureThreshold: 6
+        livenessProbe:
+          exec:
+            command: ['/bin/sh', '-c', '(healthcheck.sh 120 && exit 0) || exit 1']
+          initialDelaySeconds: 120
+          timeoutSeconds: 120
+          periodSeconds: 60
+          failureThreshold: 6
+        resources:
+{{ toYaml .Values.openiam.groovy_manager.resources | indent 10 }}
+        volumeMounts:
+        - mountPath: /data/openiam/conf/iamscripts
+          name: iamscripts
+        - mountPath: /data/openiam/conf/vault/server
+          name: vault-server-config
+          readOnly: true
+        - mountPath: /data/openiam/conf/vault/client
+          name: vault-client-config
+          readOnly: true
+{{- if eq .Values.openiam_opensearch.opensearch.protocol "https" }}
+        - mountPath: /data/openiam/conf/opensearch/server
+          name: opensearch-certificates
+          readOnly: true
+{{- end }}
+{{- if .Values.openiam_rabbitmq.rabbitmq.tls.enabled }}
+        - mountPath: /data/openiam/conf/rabbitmq/client
+          name: openiam-pvc-rabbitmq-jks
+          readOnly: true
+        - mountPath: /data/openiam/conf/rabbitmq/server
+          name: rabbitmq-certificates
+          readOnly: true
+{{- end }}
+      initContainers:
+      - name: volumeinit
+        image: "{{ .Values.openiam.image.registry }}{{ .Values.openiam.image.registryPrefixSeparator }}{{ .Values.openiam.image.prefix_infra }}/iamscripts:{{ .Values.openiam.image.version }}-{{ .Values.openiam.image.environment }}"
+        imagePullPolicy: {{ .Values.openiam.image.pullPolicy }}
+        securityContext:
+          runAsUser: {{ .Values.global.volumePermissions.securityContext.runAsUser }}
+        volumeMounts:
+        - mountPath: /data/openiam/conf/iamscripts
+          name: iamscripts
+{{- if eq true (.Values.global.volumePermissions.enabled) }}
+      - name: chown
+        image: "{{ .Values.openiam.image.registry }}{{ .Values.openiam.image.registryPrefixSeparator }}{{ .Values.openiam.image.prefix_infra }}/chown:{{ .Values.openiam.image.version }}-{{ .Values.openiam.image.environment }}"
+        imagePullPolicy: {{ .Values.openiam.image.pullPolicy }}
+        securityContext:
+          runAsUser: {{ .Values.global.volumePermissions.securityContext.runAsUser }}
+        env:
+        - name: CHOWN_DIRECTORY
+          value: /data/openiam/conf/iamscripts
+        volumeMounts:
+        - mountPath: /data/openiam/conf/iamscripts
+          name: iamscripts
+{{- if eq .Values.openiam_opensearch.opensearch.protocol "https" }}
+        - mountPath: /data/openiam/conf/opensearch/server
+          name: opensearch-certificates
+          readOnly: true
+{{- end }}
+{{- end }}
+      volumes:
+{{- if eq .Values.openiam_opensearch.opensearch.protocol "https" }}
+      - name: opensearch-certificates
+        secret:
+          secretName: opensearch-certificates
+{{- end }}
+      - name: iamscripts
+        persistentVolumeClaim:
+          claimName: openiam-pvc-storage-iamscripts
+      - name: vault-server-config
+        persistentVolumeClaim:
+          claimName: openiam-pvc-vault-server
+      - name: vault-client-config
+        persistentVolumeClaim:
+          claimName: openiam-pvc-vault-client
+{{- if .Values.openiam_rabbitmq.rabbitmq.tls.enabled }}
+      - name: openiam-pvc-rabbitmq-jks
+        persistentVolumeClaim:
+          claimName: openiam-pvc-rabbitmq-jks
+      - name: rabbitmq-certificates
+        secret:
+          secretName: rabbitmq-certificates
+{{- end }}

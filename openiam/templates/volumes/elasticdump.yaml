@@ -1,0 +1,24 @@
+{{- if eq .Values.openiam.elasticdump.enabled true }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: openiam-pvc-elasticdump
+  labels:
+    app: openiam-pvc-elasticdump
+    openiam_collect_logs: 'true'
+spec:
+  accessModes:
+  {{- range .Values.openiam.elasticdump.volume.accessModes }}
+    - {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.openiam.elasticdump.volume.size | quote }}
+{{- if .Values.openiam.elasticdump.volume.storageClass }}
+{{- if (eq "-" .Values.openiam.elasticdump.volume.storageClass) }}
+  storageClassName: ""
+{{- else }}
+  storageClassName: "{{ .Values.openiam.elasticdump.volume.storageClass }}"
+{{- end }}
+{{- end }}
+{{ end }}

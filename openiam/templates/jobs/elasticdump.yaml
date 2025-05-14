@@ -1,0 +1,44 @@
+{{- if eq .Values.openiam.elasticdump.enabled true }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Values.openiam.appname }}-elasticdump
+  labels:
+    openiam_collect_logs: 'true'
+spec:
+  backoffLimit: 100
+  template:
+    metadata:
+      labels:
+        openiam_collect_logs: 'true'
+    spec:
+      imagePullSecrets:
+      - name: myregistrykey
+      containers:
+      - name: elasticdump
+        image: "{{ .Values.openiam.image.registry }}{{ .Values.openiam.image.registryPrefixSeparator }}{{ .Values.openiam.image.prefix }}/elasticdump:{{ .Values.openiam.image.version }}-{{ .Values.openiam.image.environment }}"
+        imagePullPolicy: {{ .Values.openiam.image.pullPolicy }}
+        env:
+        - name: OPENIAM_LOG_LEVEL
+          value: {{ .Values.openiam.bash.log.level }}
+        - name: LOGGING_LEVEL
+          value: {{ .Values.openiam.bash.log.level }}
+        - name: HOST
+          value: {{ .Values.openiam.opensearch.host | quote }}
+        - name: PORT
+          value: {{ .Values.openiam.opensearch.port | quote }}
+        - name: INDEX
+          value: "auditlog orphan reconsynchstorage reconsynchstorageobject"
+        - name: ACTION
+          value: "import"
+        volumeMounts:
+        - mountPath: /data/openiam/conf/elasticdump
+          name: openiam-pvc-elasticdump
+          readOnly: false
+      restartPolicy: OnFailure
+      volumes:
+      - name: openiam-pvc-elasticdump
+        persistentVolumeClaim:
+          claimName: openiam-pvc-elasticdump
+{{ end }}
+

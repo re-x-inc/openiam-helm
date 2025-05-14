@@ -1,123 +1,901 @@
 # Default values for openiam.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
+global:
+  timezone: "${TIME_ZONE}"
+  volumePermissions:
+    enabled: true
+    securityContext:
+      runAsUser: null
+      # non-nfs volumes do not allow you to write to the volumes which get mounted as root
+      # initContainers does not support fsGroup, so you kind of have to go down this path
+      # if a client really wants to use non-nfs, than this is the exception to the rule of
+      # not running containers as root, since it promptly exits
+#      runAsUser: 0
 
-# This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
-replicaCount: 1
-
-# This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
-image:
-  repository: nginx
-  # This sets the pull policy for images.
-  pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
-
-# This is for the secretes for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
-imagePullSecrets: []
-# This is to override the chart name.
-nameOverride: ""
-fullnameOverride: ""
-
-# This section builds out the service account more information can be found here: https://kubernetes.io/docs/concepts/security/service-accounts/
-serviceAccount:
-  # Specifies whether a service account should be created
-  create: true
-  # Automatically mount a ServiceAccount's API credentials?
-  automount: true
-  # Annotations to add to the service account
-  annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
-  name: ""
-
-# This is for setting Kubernetes Annotations to a Pod.
-# For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-podAnnotations: {}
-# This is for setting Kubernetes Labels to a Pod.
-# For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
-podLabels: {}
-
-podSecurityContext: {}
-  # fsGroup: 2000
-
-securityContext: {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
-
-# This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
-service:
-  # This sets the service type more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
-  type: ClusterIP
-  # This sets the ports more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports
-  port: 80
-
-# This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
 ingress:
   enabled: false
-  className: ""
-  annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-  hosts:
-    - host: chart-example.local
-      paths:
-        - path: /
-          pathType: ImplementationSpecific
-  tls: []
-  #  - secretName: chart-example-tls
-  #    hosts:
-  #      - chart-example.local
 
-resources: {}
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
+openiam:
+  java:
+    additional:
+      args:
+        global: "-Dlogging.level.root=WARN -Dlogging.level.org.openiam=WARN"
+  appname: openiam
+  vault:
+    url: "${VAULT_URL}"
+    secrets:
+      jdbc:
+        openiam:
+          username: "${OPENIAM_DB_USERNAME}"
+          password: "${OPENIAM_DB_PASSWORD}"
+        activiti:
+          username: "${ACTIVITI_DB_USERNAME}"
+          password: "${ACTIVITI_DB_PASSWORD}"
+        groovy:
+          username: "${GROOVY_DB_USERNAME}"
+          password: "${GROOVY_DB_PASSWORD}"
+        root:
+          user: root
+          password: "${DB_ROOT_PASSWORD}"
+      redis:
+        password: "${REDIS_PASSWORD}"
+        sentinel:
+          password: "${REDIS_SENTINEL_PASSWORD}"
+      rabbitmq:
+        username: "${RABBITMQ_USERNAME}"
+        password: "${RABBITMQ_PASSWORD}"
+      opensearch:
+        username: "${OPENSEARCH_USERNAME}"
+        password: "${OPENSEARCH_PASSWORD}"
 
-# This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
-livenessProbe:
-  httpGet:
-    path: /
-    port: http
-readinessProbe:
-  httpGet:
-    path: /
-    port: http
+      javaKeystorePassword: "changeit"
+      jks:
+        password: "test"
+        keyPassword: "test"
+        cookieKeyPassword: "test"
+        commonKeyPassword: "test"
+    keypass: "test"
+  idp:
+    javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL} -Dlogging.level.org.openiam=${LOGGING_LEVEL}"
+    replicas: 3
+    external_wars: false
+    resources:
+      requests:
+        memory: "1024Mi"
+      limits:
+        memory: "1024Mi"
+    nodeSelector: {}
+    tolerations: []
+    securityContext:
+      fsGroup: 29837
+  ui_static:
+    javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL} -Dlogging.level.org.openiam=${LOGGING_LEVEL}"
+    replicas: 3
+    external_wars: false
+    resources:
+      requests:
+        memory: "1024Mi"
+      limits:
+        memory: "1024Mi"
+    nodeSelector: {}
+    tolerations: []
+    securityContext:
+      fsGroup: 29837
+  reportviewer:
+    javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL} -Dlogging.level.org.openiam=${LOGGING_LEVEL}"
+    replicas: 3
+    external_wars: false
+    resources:
+      requests:
+        memory: "1024Mi"
+      limits:
+        memory: "1024Mi"
+    nodeSelector: {}
+    tolerations: []
+    securityContext:
+      fsGroup: 29837
+  selfservice:
+    javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL} -Dlogging.level.org.openiam=${LOGGING_LEVEL}"
+    replicas: 3
+    external_wars: false
+    resources:
+      requests:
+        memory: "1024Mi"
+      limits:
+        memory: "1024Mi"
+    nodeSelector: {}
+    tolerations: []
+    securityContext:
+      fsGroup: 29837
+  selfservice_ext:
+    javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL} -Dlogging.level.org.openiam=${LOGGING_LEVEL}"
+    replicas: 3
+    external_wars: false
+    resources:
+      requests:
+        memory: "1024Mi"
+      limits:
+        memory: "1024Mi"
+    nodeSelector: {}
+    tolerations: []
+    securityContext:
+      fsGroup: 29837
+  ui:
+    replicas: 3
+    external_wars: false
+    resources:
+      requests:
+        memory: "1024Mi"
+      limits:
+        memory: "1024Mi"
+    nodeSelector: {}
+    tolerations: []
+    securityContext:
+      fsGroup: 29837
+    service:
+      host: openiam-ui
+  elasticdump:
+    enabled: false
+  esb:
+    replicas: 3
+    javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+    resources:
+      requests:
+        memory: "2304Mi"
+      limits:
+        memory: "2304Mi"
+    nodeSelector: {}
+    tolerations: []
+    securityContext:
+      fsGroup: 29837
 
-# This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
-autoscaling:
-  enabled: false
-  minReplicas: 1
-  maxReplicas: 100
-  targetCPUUtilizationPercentage: 80
-  # targetMemoryUtilizationPercentage: 80
+    hostAliases:
+      - ip: "127.0.0.1"
+        hostnames:
+          - "host.openiam"
+    service:
+      host: openiam-esb
+  business_rule_manager:
+    replicas: 3
+    javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
 
-# Additional volumes on the output Deployment definition.
-volumes: []
-# - name: foo
-#   secret:
-#     secretName: mysecret
-#     optional: false
+    resources:
+      requests:
+        memory: "614Mi"
+      limits:
+        memory: "614Mi"
+    nodeSelector: {}
+    tolerations: []
+    securityContext:
+      fsGroup: 29837
+  idm:
+    replicas: 3
+    javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
 
-# Additional volumeMounts on the output Deployment definition.
-volumeMounts: []
-# - name: foo
-#   mountPath: "/etc/foo"
-#   readOnly: true
+    resources:
+      requests:
+        memory: "614Mi"
+      limits:
+        memory: "614Mi"
+    nodeSelector: {}
+    tolerations: []
+    securityContext:
+      fsGroup: 29837
+  synchronization:
+    replicas: 3
+    javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
 
-nodeSelector: {}
+    resources:
+      requests:
+        memory: "614Mi"
+      limits:
+        memory: "614Mi"
+    nodeSelector: {}
+    tolerations: []
+    securityContext:
+      fsGroup: 29837
+  reconciliation:
+    replicas: 3
+    javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
 
-tolerations: []
+    resources:
+      requests:
+        memory: "614Mi"
+      limits:
+        memory: "614Mi"
+    nodeSelector: {}
+    tolerations: []
+    securityContext:
+      fsGroup: 29837
+  machine_learning:
+    replicas: 3
+    loggingLevel: "${LOGGING_LEVEL}"
+    resources:
+      requests:
+        memory: "614Mi"
+      limits:
+        memory: "614Mi"
+    nodeSelector: {}
+    tolerations: []
+    securityContext:
+      fsGroup: 29837
+  groovy_manager:
+    replicas: 3
+    javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
 
-affinity: {}
+    resources:
+      requests:
+        memory: "1228Mi"
+      limits:
+        memory: "1228Mi"
+    nodeSelector: {}
+    tolerations: []
+    securityContext:
+      fsGroup: 29837
+  http_source_adapter:
+    replicas: 3
+    javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL} -Dserver.port=8084 -Dorg.openiam.source.adapter.type=HTTP_SOURCE_ADAPTER"
+
+    resources:
+      requests:
+        memory: "128Mi"
+      limits:
+        memory: "128Mi"
+    nodeSelector: {}
+    tolerations: []
+    securityContext:
+      fsGroup: 29837
+  workflow:
+    replicas: 3
+    javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+
+    resources:
+      requests:
+        memory: "1228Mi"
+      limits:
+        memory: "1228Mi"
+    nodeSelector: {}
+    tolerations: []
+    securityContext:
+      fsGroup: 29837
+  authmanager:
+    replicas: 3
+    javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+
+    resources:
+      requests:
+        memory: "1024Mi"
+      limits:
+        memory: "1024Mi"
+    nodeSelector: {}
+    tolerations: []
+    securityContext:
+      fsGroup: 29837
+  connectors:
+    salesforce:
+      replicas: 0
+      javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "256Mi"
+      nodeSelector: {}
+      tolerations: []
+      securityContext:
+        fsGroup: 29837
+    ldap:
+      replicas: 1
+      javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "256Mi"
+      nodeSelector: {}
+      tolerations: []
+      securityContext:
+        fsGroup: 29837
+    jdbc:
+      replicas: 1
+      javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+      labels: {}
+      podAnnotations: {}
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "256Mi"
+      nodeSelector: {}
+      tolerations: []
+      securityContext:
+        fsGroup: 29837
+    google:
+      replicas: 0
+      javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "256Mi"
+      nodeSelector: {}
+      tolerations: []
+      securityContext:
+        fsGroup: 29837
+    aws:
+      replicas: 0
+      javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "256Mi"
+      nodeSelector: {}
+      tolerations: []
+      securityContext:
+        fsGroup: 29837
+    freshdesk:
+      replicas: 0
+      javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "256Mi"
+      nodeSelector: {}
+      tolerations: []
+      securityContext:
+        fsGroup: 29837
+    linux:
+      replicas: 1
+      javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "256Mi"
+      nodeSelector: {}
+      tolerations: []
+      securityContext:
+        fsGroup: 29837
+    oracle_ebs:
+      replicas: 0
+      javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "256Mi"
+      nodeSelector: {}
+      tolerations: []
+      securityContext:
+        fsGroup: 29837
+    oracle:
+      replicas: 0
+      javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "256Mi"
+      nodeSelector: {}
+      tolerations: []
+      securityContext:
+        fsGroup: 29837
+    scim:
+      replicas: 1
+      javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "256Mi"
+      nodeSelector: {}
+      tolerations: []
+      securityContext:
+        fsGroup: 29837
+    script:
+      replicas: 0
+      javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "256Mi"
+      nodeSelector: {}
+      tolerations: []
+      securityContext:
+        fsGroup: 29837
+    rexx:
+      replicas: 0
+      javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "256Mi"
+      nodeSelector: {}
+      tolerations: []
+      securityContext:
+        fsGroup: 29837
+    saps4hana:
+      replicas: 0
+      javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "256Mi"
+      nodeSelector: {}
+      tolerations: []
+      securityContext:
+        fsGroup: 29837
+    freshservice:
+      replicas: 0
+      javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "256Mi"
+      nodeSelector: {}
+      tolerations: []
+      securityContext:
+        fsGroup: 29837
+    tableau:
+      replicas: 0
+      javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "256Mi"
+      nodeSelector: {}
+      tolerations: []
+      securityContext:
+        fsGroup: 29837
+    oracle_idcs:
+      replicas: 0
+      javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "256Mi"
+      nodeSelector: {}
+      tolerations: []
+      securityContext:
+        fsGroup: 29837
+    workday:
+      replicas: 0
+      javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "256Mi"
+      nodeSelector: {}
+      tolerations: []
+      securityContext:
+        fsGroup: 29837
+    adp:
+      replicas: 0
+      javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "256Mi"
+      nodeSelector: {}
+      tolerations: []
+      securityContext:
+        fsGroup: 29837
+    ipa:
+      replicas: 0
+      javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "256Mi"
+      nodeSelector: {}
+      tolerations: []
+      securityContext:
+        fsGroup: 29837
+    box:
+      replicas: 0
+      javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "256Mi"
+      nodeSelector: {}
+      tolerations: []
+      securityContext:
+        fsGroup: 29837
+    boomi:
+      replicas: 0
+      javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "256Mi"
+      nodeSelector: {}
+      tolerations: []
+      securityContext:
+        fsGroup: 29837
+    lastpass:
+      replicas: 0
+      javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "256Mi"
+      nodeSelector: {}
+      tolerations: []
+      securityContext:
+        fsGroup: 29837
+    kronos:
+      replicas: 0
+      javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "256Mi"
+      nodeSelector: {}
+      tolerations: []
+      securityContext:
+        fsGroup: 29837
+    thales:
+      replicas: 0
+      javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "256Mi"
+      nodeSelector: {}
+      tolerations: []
+      securityContext:
+        fsGroup: 29837
+    postgresql:
+      replicas: 0
+      javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "256Mi"
+      nodeSelector: {}
+      tolerations: []
+      securityContext:
+        fsGroup: 29837
+  emailmanager:
+    replicas: 3
+    javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+    resources:
+      requests:
+        memory: "512Mi"
+      limits:
+        memory: "512Mi"
+    nodeSelector: {}
+    tolerations: []
+    securityContext:
+      fsGroup: 29837
+  devicemanager:
+    replicas: 3
+    javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+    resources:
+      requests:
+        memory: "512Mi"
+      limits:
+        memory: "512Mi"
+    nodeSelector: {}
+    tolerations: []
+    securityContext:
+      fsGroup: 29837
+  sasmanager:
+    replicas: 3
+    javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL}"
+    resources:
+      requests:
+        memory: "256Mi"
+      limits:
+        memory: "256Mi"
+    nodeSelector: {}
+    tolerations: []
+    securityContext:
+      fsGroup: 29837
+    servers:
+      first:
+        protocol: ${SAS_FIRST_PROTOCOL}
+        server: ${SAS_FIRST_SERVER}
+        port: ${SAS_FIRST_PORT}
+      second:
+        protocol: ${SAS_SECOND_PROTOCOL}
+        server: ${SAS_SECOND_SERVER}
+        port: ${SAS_SECOND_PORT}
+  # dev, qa, prod
+  image:
+    environment: ${BUILD_ENVIRONMENT}
+    pullPolicy: Always
+    version: "${OPENIAM_VERSION_NUMBER}"
+    prefix: "${CONTAINER_SERVICE_NAMESPACE}"
+    prefix_infra: "${CONTAINER_INFRA_NAMESPACE}"
+    registry: "${DOCKER_REGISTRY}"
+    registryPrefixSeparator: "${DOCKER_REGISTRY_SEPARATOR}"
+    credentialsJSON:
+    credentials:
+      registry: "${DOCKER_REGISTRY}"
+      username: "${DOCKERHUB_USERNAME}"
+      password: "${DOCKERHUB_PASSWORD}"
+  bash:
+    log:
+      level: "${OPENIAM_LOG_LEVEL}"
+
+  redis:
+    host: "${REDIS_HOST}"
+    redisson:
+      timeout: "5000"
+  rabbitmq:
+    host: "${RABBITMQ_HOSTNAME}"
+
+  cassandra:
+    host: "${APP_NAME}-cassandra"
+
+  ######## MariaDB #########
+  database:
+    type: "${DB_TYPE}"
+    jdbc:
+      sid: "${JDBC_SID}"
+      timezone: "${JDBC_ORACLE_USER_TIMEZONE}"
+      serviceName: "${JDBC_SERVICE_NAME}"
+      openiam:
+        host: "${JDBC_OPENIAM_DB_HOST}"
+        port: "${JDBC_OPENIAM_DB_PORT}"
+        databaseName: "${JDBC_OPENIAM_DATABASE_NAME}"
+      activiti:
+        host: "${JDBC_ACTIVITI_DB_HOST}"
+        port: "${JDBC_ACTIVITI_DB_PORT}"
+        databaseName: "${JDBC_ACTIVITI_DATABASE_NAME}"
+      groovy:
+        host: "${JDBC_GROOVY_DB_HOST}"
+        port: "${JDBC_GROOVY_DB_PORT}"
+        databaseName: "${JDBC_GROOVY_DATABASE_NAME}"
+      hibernate:
+        dialect: "${JDBC_HIBERNATE_DIALECT}"
+  flyway:
+    baselineVersion: "2.3.0.0"
+    command: ${FLYWAY_COMMAND}
+    openiam:
+      username: "IAMUSER"
+      password: "IAMUSER"
+    activiti:
+      username: "ACTIVITI"
+      password: "ACTIVITI"
+    groovy:
+      username: "GROOVY"
+      password: "GROOVY"
+  rproxy:
+    replicas: 3
+    loadBalancer:
+      ip:
+    vhost:
+      extra:
+    apache:
+      extra:
+    resources:
+      requests:
+        memory: "512Mi"
+      limits:
+        memory: "512Mi"
+    aws: {}
+  gremlin:
+    replicas: 1
+volumes:
+  vault:
+    volume:
+      seal:
+        annotations: []
+        size: "10M"
+        accessModes:
+          - ReadWriteMany
+        storageClass: "nfs"
+      client:
+        annotations: []
+        size: "10M"
+        accessModes:
+          - ReadWriteMany
+        storageClass: "nfs"
+      server:
+        annotations: []
+        size: "10M"
+        accessModes:
+          - ReadWriteMany
+        storageClass: "nfs"
+      storage:
+        annotations: []
+        size: "1Gi"
+        accessModes:
+          - ReadWriteMany
+        storageClass: "nfs"
+  selfservice:
+    ext:
+      annotations: []
+      size: "200M"
+      accessModes:
+        - ReadWriteMany
+      storageClass: "nfs"
+  groovy_manager:
+    volume:
+      iamscripts:
+        annotations: []
+        size: "10M"
+        accessModes:
+          - ReadWriteMany
+        storageClass: "nfs"
+  machine_learning:
+    volume:
+      annotations: []
+      size: "1Gi"
+      accessModes:
+        - ReadWriteMany
+      storageClass: "nfs"
+  workflow:
+    volume:
+      activiti:
+        annotations: []
+        size: "5M"
+        accessModes:
+          - ReadWriteMany
+        storageClass: "nfs"
+  ldap_connector_rabbitmq:
+    volume:
+      ldap_connector_rabbitmq:
+        annotations: []
+        size: "5M"
+        accessModes:
+          - ReadWriteMany
+        storageClass: "nfs"
+  elasticdump:
+    enabled: false
+    volume:
+      annotations: []
+      size: "100Gi"
+      accessModes:
+        - ReadWriteOnce
+  rabbitmq:
+    volume:
+      annotations: []
+      size: "5M"
+      accessModes:
+        - ReadWriteMany
+      storageClass: "nfs"
+  upload:
+    volume:
+      annotations: []
+      size: "1Gi"
+      accessModes:
+        - ReadWriteMany
+      storageClass: "nfs"
+  ui:
+    volume:
+      annotations: []
+      size: "5M"
+      accessModes:
+        - ReadWriteMany
+      storageClass: "nfs"
+
+consul:
+  url: consul-server
+  port: 8500
+openiam_vault:
+  vault:
+    openPorts: false
+    keypass: ""
+    resources:
+      requests:
+        memory: "192Mi"
+      limits:
+        memory: "192Mi"
+    nodeSelector: {}
+    tolerations: []
+    securityContext:
+      fsGroup: 100
+
+    cert:
+      country: US
+      state: NY
+      locality: NYC
+      organization: OpenIAM
+      organizationunit: DevOps
+
+openiam_redis:
+  redis:
+    debugclient:
+      enabled: false
+openiam_postgresql:
+  postgresql:
+    debugclient:
+      enabled: false
+
+openiam_mariadb:
+  mysql:
+    debugclient:
+      enabled: false
+
+openiam_rabbitmq:
+  rabbitmq:
+    tls:
+      enabled: false
+
+openiam_rproxy:
+  ssl:
+    cert: openiam.crt
+    certKey: openiam.key
+  debug:
+    base: ""
+  https:
+    host:
+  http:
+
+  replicas: 3
+  loadBalancer:
+    ip:
+  vhost:
+    extra:
+  apache:
+    extra:
+  resources:
+    requests:
+      memory: "512Mi"
+    limits:
+      memory: "512Mi"
+  aws: {}
+  log:
+    error: ""
+openiam_ui:
+  ui_static:
+    javaOpts: "-Djdk.tls.client.protocols=TLSv1.2 -Dorg.openiam.docker.ui.container.name=${APP_NAME}-ui"
+  webconsole:
+    javaOpts: "-Dlogging.level.root=${LOGGING_LEVEL} -Dlogging.level.org.openiam=${LOGGING_LEVEL}"
+    replicas: 3
+    external_wars: false
+    resources:
+      requests:
+        memory: "1024Mi"
+      limits:
+        memory: "1024Mi"
+    nodeSelector: {}
+    tolerations: []
+    securityContext:
+      fsGroup: 29837
+
+openiam_gremlin:
+  gremlin:
+    type: "janusgraph"
+
+openiam_opensearch:
+  opensearch:
+    protocol: "https"
+    host: "${OPENSEARCH_HOSTNAME}"
+    port: "${OPENSEARCH_PORT}"
+    helm:
+      curate:
+        days: 3
+      index:
+        days: 3

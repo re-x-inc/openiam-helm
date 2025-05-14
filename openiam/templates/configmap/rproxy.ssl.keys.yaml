@@ -1,0 +1,15 @@
+{{- if eq (int .Values.openiam.rproxy.http) 0 }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rproxy-ssl-keys
+  labels:
+    openiam_collect_logs: 'true'
+data:
+  openiam.key: |-
+{{ if .Values.openiam.rproxy.openiamkey }}
+{{ .Values.openiam.rproxy.openiamkey | indent 4}}
+{{ else }}
+{{ .Files.Get ".ssl/openiam.key" | indent 4}}
+{{ end }}
+{{- end }}

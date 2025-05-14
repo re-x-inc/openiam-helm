@@ -1,0 +1,133 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.openiam.appname }}-adp-connector-rabbitmq
+  labels:
+    openiam_collect_logs: 'true'
+{{ include "labels.standard" . | indent 4 }}
+spec:
+  selector:
+    matchLabels:
+      release: {{ .Release.Name }}
+      app: {{ .Values.openiam.appname }}-adp-connector-rabbitmq
+  serviceName: {{ .Values.openiam.appname }}-adp-connector-rabbitmq
+  replicas: {{ required "openiam.connectors.adp.replicas is required" .Values.openiam.connectors.adp.replicas }}
+  podManagementPolicy: OrderedReady
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      {{- if .Values.openiam.connectors.adp.podAnnotations }}
+{{ toYaml .Values.openiam.connectors.adp.podAnnotations | indent 8 }}
+      {{- end }}
+      labels:
+        release: {{ .Release.Name }}
+        app: {{ .Values.openiam.appname }}-adp-connector-rabbitmq
+        openiam_collect_logs: 'true'
+        {{- range $key, $value := .Values.openiam.connectors.adp.labels }}
+        {{ $key }}: {{ $value }}
+        {{- end }}
+    spec:
+      {{- if .Values.openiam.connectors.adp.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.openiam.connectors.adp.nodeSelector | indent 8 }}
+      {{- end }}
+      {{- if .Values.openiam.connectors.adp.hostAliases }}
+      hostAliases:
+{{ toYaml .Values.openiam.connectors.adp.hostAliases | indent 8 }}
+      {{- end }}
+      {{- if .Values.openiam.connectors.adp.tolerations }}
+      tolerations:
+{{ toYaml .Values.openiam.connectors.adp.tolerations | indent 8 }}
+      {{- end }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - {{ .Values.openiam.appname }}-adp-connector-rabbitmq
+            topologyKey: "kubernetes.io/hostname"
+      securityContext:
+{{ toYaml .Values.openiam.connectors.adp.securityContext | indent 8 }}
+      imagePullSecrets:
+      - name: myregistrykey
+      containers:
+      - name: adp-connector-rabbitmq
+        image: "{{ .Values.openiam.image.registry }}{{ .Values.openiam.image.registryPrefixSeparator }}{{ .Values.openiam.image.prefix }}/adp-connector-rabbitmq:{{ .Values.openiam.image.version }}-{{ .Values.openiam.image.environment }}"
+        imagePullPolicy: {{ .Values.openiam.image.pullPolicy }}
+        env:
+        - name: REDIS_HOST
+          value: {{ .Values.openiam.redis.host | quote }}
+        - name: REDIS_PORT
+          value: {{ .Values.openiam.redis.port | quote }}
+        - name: REDIS_MODE
+          value: {{ .Values.openiam.redis.mode | quote }}
+        - name: REDISSON_TIMEOUT
+          value: {{ .Values.openiam.redis.redisson.timeout | quote }}
+        - name: OPENIAM_LOG_LEVEL
+          value: {{ .Values.openiam.bash.log.level }}
+        - name: LOGGING_LEVEL
+          value: {{ .Values.openiam.bash.log.level }}
+        - name: OPENIAM_JAVA_OPT_ARGS
+          value: "{{ .Values.openiam.java.additional.args.global }} {{ .Values.openiam.connectors.adp.javaOpts }}"
+        - name: RABBITMQ_HOST
+          value: {{ .Values.openiam.rabbitmq.host | quote }}
+        - name: RABBITMQ_PORT
+          value: {{ .Values.openiam.rabbitmq.port | quote }}
+        - name: VAULT_HOST
+          value: {{ .Values.openiam.vault.url | quote }}
+        - name: VAULT_KEYPASS
+          valueFrom:
+            secretKeyRef:
+              name: secrets
+              key: vaultKeyPassword
+        readinessProbe:
+          exec:
+            command: ['/bin/sh', '-c', '(healthcheck.sh 120 && exit 0) || exit 1']
+          initialDelaySeconds: 120
+          timeoutSeconds: 120
+          periodSeconds: 60
+          failureThreshold: 6
+        livenessProbe:
+          exec:
+            command: ['/bin/sh', '-c', '(healthcheck.sh 120 && exit 0) || exit 1']
+          initialDelaySeconds: 120
+          timeoutSeconds: 120
+          periodSeconds: 60
+          failureThreshold: 6
+        volumeMounts:
+        - mountPath: /data/openiam/conf/vault/server
+          name: vault-server-config
+          readOnly: true
+        - mountPath: /data/openiam/conf/vault/client
+          name: vault-client-config
+          readOnly: true
+{{- if .Values.openiam_rabbitmq.rabbitmq.tls.enabled }}
+        - mountPath: /data/openiam/conf/rabbitmq/client
+          name: openiam-pvc-rabbitmq-jks
+          readOnly: true
+        - mountPath: /data/openiam/conf/rabbitmq/server
+          name: rabbitmq-certificates
+          readOnly: true
+{{- end }}
+        resources:
+{{ toYaml .Values.openiam.connectors.adp.resources | indent 10 }}
+      volumes:
+      - name: vault-server-config
+        persistentVolumeClaim:
+          claimName: openiam-pvc-vault-server
+      - name: vault-client-config
+        persistentVolumeClaim:
+          claimName: openiam-pvc-vault-client
+{{- if .Values.openiam_rabbitmq.rabbitmq.tls.enabled }}
+      - name: openiam-pvc-rabbitmq-jks
+        persistentVolumeClaim:
+          claimName: openiam-pvc-rabbitmq-jks
+      - name: rabbitmq-certificates
+        secret:
+          secretName: rabbitmq-certificates
+{{- end }}
